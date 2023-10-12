@@ -14,8 +14,8 @@ The ``simple-repository-server`` is designed to be used as a library, but also i
 a simple repository service:
 
 ```bash
-$ simple-repository --help
-usage: simple-repository [-h] [--port PORT] repository-url [repository-url ...]
+$ simple-repository-server --help
+usage: simple-repository-server [-h] [--port PORT] repository-url [repository-url ...]
 
 Run a Simple Repository Server
 
