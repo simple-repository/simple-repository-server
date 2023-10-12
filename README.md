@@ -28,7 +28,7 @@ options:
 ```
 
 If multiple repositories are provided, the ``PrioritySelectedProjectsRepository`` component will be used to
-combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610). 
+combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610).
 
 The server handles PEP-691 content negotiation to serve either HTML or JSON formats.
 Per PEP-691, the default (fallback) content type is HTML, but a JSON response can

@@ -43,6 +43,7 @@ setup(
     author="BE-CSS-SET, CERN",
     url="https://github.com/simple-repository/simple-repository-server",
     packages=find_packages(),
+    entry_points={'console_scripts': ['simple-repository-server = simple_repository_server.__main__:main']},
     python_requires="~=3.11",
     classifiers=[
         "Development Status :: 4 - Beta",
