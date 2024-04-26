@@ -12,10 +12,10 @@ from pathlib import Path
 import typing
 from urllib.parse import urlparse
 
-import aiohttp
 import aiosqlite
 import fastapi
 from fastapi import FastAPI
+import httpx
 from simple_repository.components.core import SimpleRepository
 from simple_repository.components.http import HttpRepository
 from simple_repository.components.local import LocalRepository
@@ -39,7 +39,7 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
 
 def create_repository(
     repository_urls: list[str],
-    session: aiohttp.ClientSession,
+    http_client: httpx.AsyncClient,
     database: aiosqlite.Connection,
 ) -> SimpleRepository:
     base_repos: list[SimpleRepository] = []
@@ -48,7 +48,7 @@ def create_repository(
         if is_url(repo_url):
             repo = HttpRepository(
                 url=repo_url,
-                session=session,
+                http_client=http_client,
             )
         else:
             repo = LocalRepository(
@@ -60,18 +60,18 @@ def create_repository(
         repo = PrioritySelectedProjectsRepository(base_repos)
     else:
         repo = base_repos[0]
-    return MetadataInjectorRepository(repo, database, session)
+    return MetadataInjectorRepository(repo, http_client)
 
 
 def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
-        async with aiohttp.ClientSession() as session:
+        async with httpx.AsyncClient() as http_client:
             # Normally we store derived data in a database on disk, but we can
             # equally simply use an in-memory db for simple in-process caching
             async with aiosqlite.connect(":memory:") as database:
-                repo = create_repository(repository_urls, session, database)
-                app.include_router(simple.build_router(repo, session), prefix="")
+                repo = create_repository(repository_urls, http_client, database)
+                app.include_router(simple.build_router(repo, http_client), prefix="")
                 yield
 
     app = FastAPI(
