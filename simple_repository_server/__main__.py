@@ -33,6 +33,7 @@ def is_url(url: str) -> bool:
 def configure_parser(parser: argparse.ArgumentParser) -> None:
     parser.description = "Run a Python Package Index"
 
+    parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("repository_url", metavar="repository-url", type=str, nargs="+")
 
@@ -82,10 +83,12 @@ def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
 
 
 def handler(args: typing.Any) -> None:
+    host: str = args.host
     port: int = args.port
     repository_urls: list[str] = args.repository_url
     uvicorn.run(
         app=create_app(repository_urls),
+        host=host,
         port=port,
     )
 
