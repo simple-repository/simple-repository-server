@@ -5,14 +5,11 @@
 # granted to it by virtue of its status as Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-import argparse
 from contextlib import asynccontextmanager
-import logging
 from pathlib import Path
 import typing
 from urllib.parse import urlparse
 
-import aiosqlite
 import fastapi
 from fastapi import FastAPI
 import httpx
@@ -21,27 +18,17 @@ from simple_repository.components.http import HttpRepository
 from simple_repository.components.local import LocalRepository
 from simple_repository.components.metadata_injector import MetadataInjectorRepository
 from simple_repository.components.priority_selected import PrioritySelectedProjectsRepository
-import uvicorn
 
-from simple_repository_server.routers import simple
+from .routers import simple
 
 
 def is_url(url: str) -> bool:
     return urlparse(url).scheme in ("http", "https")
 
 
-def configure_parser(parser: argparse.ArgumentParser) -> None:
-    parser.description = "Run a Python Package Index"
-
-    parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
-    parser.add_argument("repository_url", metavar="repository-url", type=str, nargs="+")
-
-
 def create_repository(
     repository_urls: list[str],
     http_client: httpx.AsyncClient,
-    database: aiosqlite.Connection,
 ) -> SimpleRepository:
     base_repos: list[SimpleRepository] = []
     repo: SimpleRepository
@@ -67,39 +54,16 @@ def create_repository(
 def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
-        async with httpx.AsyncClient() as http_client:
-            # Normally we store derived data in a database on disk, but we can
-            # equally simply use an in-memory db for simple in-process caching
-            async with aiosqlite.connect(":memory:") as database:
-                repo = create_repository(repository_urls, http_client, database)
-                app.include_router(simple.build_router(repo, http_client), prefix="")
-                yield
+        # If trust_env is set, httpx will use the url specified in the HTTP(S)_PROXY
+        # env var as http proxy for all the connections created from this session.
+        http_client = httpx.AsyncClient(trust_env=True)
+        repo = create_repository(repository_urls, http_client)
+        app.include_router(simple.build_router(repo, http_client), prefix="")
+        yield
+        await http_client.aclose()
 
     app = FastAPI(
         openapi_url=None,  # Disables automatic OpenAPI documentation (Swagger & Redoc)
         lifespan=lifespan,
     )
     return app
-
-
-def handler(args: typing.Any) -> None:
-    host: str = args.host
-    port: int = args.port
-    repository_urls: list[str] = args.repository_url
-    uvicorn.run(
-        app=create_app(repository_urls),
-        host=host,
-        port=port,
-    )
-
-
-def main() -> None:
-    logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser()
-    configure_parser(parser)
-    args = parser.parse_args()
-    handler(args)
-
-
-if __name__ == '__main__':
-    main()

@@ -10,10 +10,11 @@ import typing
 from unittest import mock
 
 from fastapi import FastAPI
+import httpx
 import pytest
+from pytest_httpx import HTTPXMock
 from simple_repository import errors, model
 from simple_repository.components.core import SimpleRepository
-from simple_repository.tests.aiohttp_mock import MockClientSession
 from starlette.testclient import TestClient
 
 import simple_repository_server.routers.simple as simple_router
@@ -28,7 +29,8 @@ def mock_repo() -> mock.AsyncMock:
 @pytest.fixture
 def client(tmp_path: pathlib.PosixPath, mock_repo: mock.AsyncMock) -> typing.Generator[TestClient, None, None]:
     app = FastAPI()
-    app.include_router(simple_router.build_router(mock_repo, ...))
+    http_client = httpx.AsyncClient()
+    app.include_router(simple_router.build_router(mock_repo, http_client))
 
     with TestClient(app) as test_client:
         yield test_client
@@ -112,19 +114,19 @@ async def test_simple_package_releases_package_not_found(client: TestClient, moc
     }
 
 
-def test_get_resource__remote(mock_repo: mock.AsyncMock) -> None:
+def test_get_resource__remote(mock_repo: mock.AsyncMock, httpx_mock: HTTPXMock) -> None:
     mock_repo.get_resource.return_value = model.HttpResource(
-        url="my_url",
+        url="http://my_url",
     )
 
-    mock_client_session = MockClientSession(
-        status=201,
+    httpx_mock.add_response(
+        status_code=201,
         headers={"my_header": "header"},
-        content="b1b2b3",
+        text="b1b2b3",
     )
-
+    http_client = httpx.AsyncClient()
     app = FastAPI()
-    app.include_router(simple_router.build_router(mock_repo, mock_client_session))
+    app.include_router(simple_router.build_router(mock_repo, http_client))
     client = TestClient(app)
 
     response = client.get("/resources/numpy/numpy-1.0-ciao.whl", follow_redirects=False)

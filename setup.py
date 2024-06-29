@@ -15,21 +15,23 @@ with (HERE / "README.md").open("rt") as fh:
 
 REQUIREMENTS: dict[str, list[str]] = {
     "core": [
-        "aiohttp",
+        "httpx",
         "aiosqlite",
         "fastapi>=0.100.0",
         "gunicorn",
         "packaging",
         "uvicorn[standard]",
         "pydantic-settings",
-        "simple-repository",
+        "simple-repository>=0.6.0",
+        "timing_asgi",
     ],
     "test": [
         # httpx is needed for starlette.TestClient. https://www.starlette.io/#dependencies
-        "httpx>=0.25",
         "pytest",
         "pytest_asyncio",
+        "pytest_httpx",
         "starlette>=0.26.1",
+        "pytest_httpserver",
     ],
     "dev": [
         "pre-commit",

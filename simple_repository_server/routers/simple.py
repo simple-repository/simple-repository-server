@@ -8,7 +8,6 @@
 import functools
 import hashlib
 
-import aiohttp
 from fastapi import APIRouter, HTTPException
 import fastapi.params
 from fastapi.responses import (
@@ -19,6 +18,7 @@ from fastapi.responses import (
     Response,
     StreamingResponse,
 )
+import httpx
 import packaging.utils
 import packaging.version
 from simple_repository import SimpleRepository, content_negotiation, errors, model, serializer
@@ -29,7 +29,7 @@ from ..http_response_iterator import HttpResponseIterator
 
 def build_router(
     repository: SimpleRepository,
-    streaming_session: aiohttp.ClientSession,
+    http_client: httpx.AsyncClient,
 ) -> APIRouter:
     simple_router = APIRouter(
         tags=["simple"],
@@ -142,7 +142,7 @@ def build_router(
 
         if isinstance(resource, model.HttpResource):
             response_iterator = await HttpResponseIterator.create_iterator(
-                session=streaming_session,
+                http_client=http_client,
                 url=resource.url,
             )
             return StreamingResponse(
