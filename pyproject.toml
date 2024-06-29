@@ -38,6 +38,7 @@ dependencies = [
   "timing_asgi",
 ]
 readme = "README.md"
+description = "A tool for running a PEP-503 simple Python package repository, including features such as dist metadata (PEP-658) and JSON API (PEP-691)"
 
 [project.urls]
 Homepage = "https://github.com/simple-repository/simple-repository-server"

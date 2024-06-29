@@ -231,31 +231,60 @@ def test_simple_project_list__json_url_params(
     assert response.headers.get("content-type") == url_format
 
 
-def test_get_resource__metadata(client: TestClient, mock_repo: mock.AsyncMock) -> None:
+@pytest.mark.parametrize(
+    ['headers', 'expected_return_code'],
+    [
+        [{}, 200],
+        [{"If-None-Match": '"45447b7afbd5"'}, 304],
+        [{"If-None-Match": '"not-the-etag"'}, 200],
+    ],
+)
+def test_get_resource__metadata(
+        client: TestClient,
+        mock_repo: mock.AsyncMock,
+        headers: dict[str, str],
+        expected_return_code: int,
+) -> None:
     assert isinstance(client.app, FastAPI)
     mock_repo.get_resource.return_value = model.TextResource(
         text="metadata",
     )
+    expected_etag = '"45447b7afbd5"'
 
-    response = client.get("/resources/numpy/numpy-1.0-ciao.whl.metadata")
-    assert response.status_code == 200
-    assert response.headers.get("etag") == "45447b7afbd5"
+    response = client.get("/resources/numpy/numpy-1.0-ciao.whl.metadata", headers=headers)
+    assert response.status_code == expected_return_code
+    # The etag must always be returned, see the following for details:
+    # https://github.com/simple-repository/simple-repository-server/issues/6#issue-2317360891
+    assert response.headers.get("etag") == expected_etag
 
-    response = client.get("/resources/numpy/numpy-1.0-ciao.whl.metadata", headers={"If-None-Match": "45447b7afbd5"})
-    assert response.status_code == 304
 
-
+@pytest.mark.parametrize(
+    ['headers', 'expected_return_code'],
+    [
+        [{}, 200],
+        [{"If-None-Match": '"430fddbf0a7ab4aebc1389262dbe2404"'}, 304],
+        [{"If-None-Match": '"not-the-etag"'}, 200],
+    ],
+)
 def test_get_resource__local(
     client: TestClient,
     mock_repo: mock.AsyncMock,
     tmp_path: pathlib.Path,
+    headers: dict[str, str],
+    expected_return_code: int,
 ) -> None:
     local_resource = tmp_path / "my_file"
     local_resource.write_text("hello!")
+    expected_tag = '"430fddbf0a7ab4aebc1389262dbe2404"'
+
     assert isinstance(client.app, FastAPI)
     mock_repo.get_resource.return_value = model.LocalResource(
         path=local_resource,
+        context=model.Context(etag=expected_tag),
     )
 
-    response = client.get("/resources/numpy/numpy-1.0-ciao.whl")
-    assert response.status_code == 200
+    response = client.get("/resources/numpy/numpy-1.0-ciao.whl", headers=headers)
+    assert response.status_code == expected_return_code
+    # The etag must always be returned, see the following for details:
+    # https://github.com/simple-repository/simple-repository-server/issues/6#issue-2317360891
+    assert response.headers.get("etag") == expected_tag

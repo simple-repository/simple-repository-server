@@ -24,7 +24,7 @@ import packaging.version
 from simple_repository import SimpleRepository, content_negotiation, errors, model, serializer
 
 from .. import utils
-from ..http_response_iterator import HttpResponseIterator
+from .._http_response_iterator import HttpResponseIterator
 
 
 def build_router(
@@ -133,11 +133,16 @@ def build_router(
         if isinstance(resource, model.TextResource):
             # Use the first 12 characters of the metadata digest as ETag
             text_hash = hashlib.sha256(resource.text.encode('UTF-8')).hexdigest()[:12]
-            if text_hash == request.headers.get("if-none-match"):
-                raise HTTPException(304)
+            etag = f'"{text_hash}"'
+            response_headers = {'ETag': etag}
+            if etag == request.headers.get("if-none-match"):
+                raise HTTPException(
+                    304,
+                    headers=response_headers,
+                )
             return PlainTextResponse(
                 content=resource.text,
-                headers={'ETag': text_hash},
+                headers=response_headers,
             )
 
         if isinstance(resource, model.HttpResource):
@@ -152,14 +157,18 @@ def build_router(
             )
 
         if isinstance(resource, model.LocalResource):
-            etag = resource.context.get("etag")
+            ctx_etag = resource.context.get("etag")
+            response_headers = {"ETag": ctx_etag} if ctx_etag else {}
             if client_etag := request.headers.get("if-none-match"):
-                if client_etag == etag:
-                    raise HTTPException(304)
+                if client_etag == ctx_etag:
+                    raise HTTPException(
+                        304,
+                        headers=response_headers,
+                    )
             return FileResponse(
                 path=resource.path,
                 media_type="application/octet-stream",
-                headers={"ETag": etag} if etag else {},
+                headers=response_headers,
             )
 
         raise ValueError("Unsupported resource type")
