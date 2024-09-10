@@ -32,19 +32,3 @@ repos:
       - id: flake8
         args:
           - "--max-line-length=120"
-
-  - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.1.12
-    hooks:
-      - id: insert-license
-        name: "Insert license header"
-        files: ''
-        types_or:
-          - python
-          - yaml
-          - toml
-        args:
-          - "--license-filepath"
-          - LICENSE_HEADER
-          - "--detect-license-in-X-top-lines"
-          - "6"

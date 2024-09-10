@@ -4,7 +4,6 @@
 # In applying this license, CERN does not waive the privileges and immunities
 # granted to it by virtue of its status as Intergovernmental Organization
 # or submit itself to any jurisdiction.
-
 import functools
 import hashlib
 
@@ -71,9 +70,9 @@ def build_router(
             media_type=response_format.value,
         )
 
-    @get("/simple/{package_name}/")
+    @get("/simple/{project_name}/")
     async def simple_project_page(
-        package_name: str,
+        project_name: str,
         request: fastapi.Request,
         format: str | None = None,
     ) -> Response:
@@ -93,23 +92,26 @@ def build_router(
         except errors.UnsupportedSerialization as e:
             raise HTTPException(status_code=406, detail=str(e))
 
-        try:
-            package_releases = await repository.get_project_page(package_name)
-        except errors.PackageNotFoundError as e:
-            raise HTTPException(404, str(e))
-        except errors.NotNormalizedProjectName:
+        normed_prj_name = packaging.utils.canonicalize_name(project_name)
+        if normed_prj_name != project_name:
             return RedirectResponse(
                 url=utils.relative_url_for(
                     request=request,
                     name="simple_project_page",
-                    package_name=packaging.utils.canonicalize_name(package_name),
+                    project_name=normed_prj_name,
                 ),
+                status_code=301,
             )
 
-        package_releases = utils.replace_urls(package_releases, package_name, request)
+        try:
+            package_releases = await repository.get_project_page(project_name)
+        except errors.PackageNotFoundError as e:
+            raise HTTPException(404, str(e))
+
+        project_releases = utils.replace_urls(package_releases, project_name, request)
 
         serialized_project_page = serializer.serialize(
-            page=package_releases,
+            page=project_releases,
             format=response_format,
         )
         return Response(
@@ -117,14 +119,14 @@ def build_router(
             media_type=response_format.value,
         )
 
-    @get("/resources/{package_name}/{resource_name}")
+    @get("/resources/{project_name}/{resource_name}")
     async def resources(
         resource_name: str,
-        package_name: str,
+        project_name: str,
         request: fastapi.Request,
     ) -> fastapi.Response:
         try:
-            resource = await repository.get_resource(package_name, resource_name)
+            resource = await repository.get_resource(project_name, resource_name)
         except errors.ResourceUnavailable as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         except errors.InvalidPackageError as e:

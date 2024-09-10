@@ -4,7 +4,6 @@
 # In applying this license, CERN does not waive the privileges and immunities
 # granted to it by virtue of its status as Intergovernmental Organization
 # or submit itself to any jurisdiction.
-
 import pathlib
 import typing
 from unittest import mock
@@ -92,15 +91,21 @@ def test_simple_project_page(client: TestClient, headers: dict[str, str], mock_r
     assert response.text == expected
 
 
-def test_simple_package_releases_not_normalized(client: TestClient, mock_repo: mock.AsyncMock) -> None:
+def test_simple_package_releases__not_normalized(client: TestClient, mock_repo: mock.AsyncMock) -> None:
     assert isinstance(client.app, FastAPI)
-    mock_repo.get_project_page.side_effect = errors.NotNormalizedProjectName()
-    response = client.get("/simple/not_normalized", follow_redirects=False)
-    assert response.status_code == 307
+    response = client.get("/simple/not_Normalized/", follow_redirects=False)
+    assert response.status_code == 301
+    assert response.headers['location'] == '../not-normalized/'
+
+
+def test_simple_package_releases__no_trailing_slash(client: TestClient, mock_repo: mock.AsyncMock) -> None:
+    assert isinstance(client.app, FastAPI)
+    response = client.get("/simple/some-project", follow_redirects=False)
+    assert response.status_code == 307  # Provided by FastAPI itself
 
 
 @pytest.mark.asyncio
-async def test_simple_package_releases_package_not_found(client: TestClient, mock_repo: mock.AsyncMock) -> None:
+async def test_simple_package_releases__package_not_found(client: TestClient, mock_repo: mock.AsyncMock) -> None:
     assert isinstance(client.app, FastAPI)
     mock_repo.get_project_page.side_effect = errors.PackageNotFoundError(
         package_name="ghost",

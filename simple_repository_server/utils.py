@@ -4,7 +4,6 @@
 # In applying this license, CERN does not waive the privileges and immunities
 # granted to it by virtue of its status as Intergovernmental Organization
 # or submit itself to any jurisdiction.
-
 from dataclasses import replace
 import json
 import re
@@ -74,7 +73,7 @@ def relative_url_for(
 
 def replace_urls(
     project_page: model.ProjectDetail,
-    package_name: str,
+    project_name: str,
     request: fastapi.Request,
 ) -> model.ProjectDetail:
     files = tuple(
@@ -83,7 +82,7 @@ def replace_urls(
             url=relative_url_for(
                 request=request,
                 name="resources",
-                package_name=package_name,
+                project_name=project_name,
                 resource_name=file.filename,
             ),
         ) for file in project_page.files
