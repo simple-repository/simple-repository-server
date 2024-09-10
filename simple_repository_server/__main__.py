@@ -12,7 +12,6 @@ from pathlib import Path
 import typing
 from urllib.parse import urlparse
 
-import aiosqlite
 import fastapi
 from fastapi import FastAPI
 import httpx
@@ -41,7 +40,6 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
 def create_repository(
     repository_urls: list[str],
     http_client: httpx.AsyncClient,
-    database: aiosqlite.Connection,
 ) -> SimpleRepository:
     base_repos: list[SimpleRepository] = []
     repo: SimpleRepository
@@ -68,12 +66,9 @@ def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
         async with httpx.AsyncClient() as http_client:
-            # Normally we store derived data in a database on disk, but we can
-            # equally simply use an in-memory db for simple in-process caching
-            async with aiosqlite.connect(":memory:") as database:
-                repo = create_repository(repository_urls, http_client, database)
-                app.include_router(simple.build_router(repo, http_client), prefix="")
-                yield
+            repo = create_repository(repository_urls, http_client)
+            app.include_router(simple.build_router(repo, http_client), prefix="")
+            yield
 
     app = FastAPI(
         openapi_url=None,  # Disables automatic OpenAPI documentation (Swagger & Redoc)

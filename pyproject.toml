@@ -28,14 +28,10 @@ authors = [
 ]
 dependencies = [
   "httpx",
-  "aiosqlite",
   "fastapi>=0.100.0",
-  "gunicorn",
   "packaging",
   "uvicorn[standard]",
-  "pydantic-settings",
   "simple-repository>=0.6.0",
-  "timing_asgi",
 ]
 readme = "README.md"
 description = "A tool for running a PEP-503 simple Python package repository, including features such as dist metadata (PEP-658) and JSON API (PEP-691)"
@@ -70,10 +66,10 @@ use_parentheses = true
 ensure_newline_before_comments = true
 force_sort_within_sections = true
 
-[tool.mypy]  # TODO: integrate in pre-commit (gave issues)
+[tool.mypy]
 python_version = "3.11"
 exclude = "simple_repository_server/tests"
-ignore_missing_imports = true  # Set to false later
+ignore_missing_imports = false
 strict = true
 
 [tool.setuptools.packages.find]
