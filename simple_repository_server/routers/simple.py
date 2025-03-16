@@ -7,8 +7,9 @@
 
 import functools
 import hashlib
+import typing
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 import fastapi.params
 from fastapi.responses import (
     FileResponse,
@@ -27,6 +28,36 @@ from .. import utils
 from .._http_response_iterator import HttpResponseIterator
 
 
+def get_response_format(
+        request: fastapi.Request,
+        format: str | None = None,
+) -> content_negotiation.Format:
+    """
+    A fastapi dependent which can optionally enable a PEP-691 format querystring,
+    for example:
+
+        /simple/some-project/?format=application/vnd.pypi.simple.v1+json
+
+    """
+    if format:
+        # Allow the consumer to request a format as a query string such as
+        # {URL}?format=application/vnd.pypi.simple.v1+json
+        # Note: + in urls are interpreted as spaces by
+        # urllib.parse.parse_qsl, used by FastAPI.
+        requested_format = format.replace(" ", "+")
+    else:
+        requested_format = request.headers.get("Accept", "")
+
+    try:
+        response_format = content_negotiation.select_response_format(
+            content_type=requested_format,
+        )
+    except errors.UnsupportedSerialization as e:
+        raise HTTPException(status_code=406, detail=str(e))
+
+    return response_format
+
+
 def build_router(
     repository: SimpleRepository,
     http_client: httpx.AsyncClient,
@@ -40,25 +71,8 @@ def build_router(
 
     @get("/simple/")
     async def project_list(
-        request: fastapi.Request,
-        format: str | None = None,
+        response_format: typing.Annotated[content_negotiation.Format, Depends(get_response_format)],
     ) -> Response:
-        if format:
-            # Allow the consumer to request a format as a query string such as
-            # {URL}?format=application/vnd.pypi.simple.v1+json
-            # Note: + in urls are interpreted as spaces by
-            # urllib.parse.parse_qsl, used by FastAPI.
-            requested_format = format.replace(" ", "+")
-        else:
-            requested_format = request.headers.get("Accept", "")
-
-        try:
-            response_format = content_negotiation.select_response_format(
-                content_type=requested_format,
-            )
-        except errors.UnsupportedSerialization as e:
-            raise HTTPException(status_code=406, detail=str(e))
-
         project_list = await repository.get_project_list()
 
         serialized_project_list = serializer.serialize(
@@ -75,24 +89,8 @@ def build_router(
     async def simple_project_page(
         project_name: str,
         request: fastapi.Request,
-        format: str | None = None,
+        response_format: typing.Annotated[content_negotiation.Format, Depends(get_response_format)],
     ) -> Response:
-        if format:
-            # Allow the consumer to request a format as a query string such as
-            # {URL}?format=application/vnd.pypi.simple.v1+json
-            # Note: + in urls are interpreted as spaces by
-            # urllib.parse.parse_qsl, used by FastAPI.
-            requested_format = format.replace(" ", "+")
-        else:
-            requested_format = request.headers.get("Accept", "")
-
-        try:
-            response_format = content_negotiation.select_response_format(
-                content_type=requested_format,
-            )
-        except errors.UnsupportedSerialization as e:
-            raise HTTPException(status_code=406, detail=str(e))
-
         normed_prj_name = packaging.utils.canonicalize_name(project_name)
         if normed_prj_name != project_name:
             return RedirectResponse(
@@ -126,8 +124,18 @@ def build_router(
         project_name: str,
         request: fastapi.Request,
     ) -> fastapi.Response:
+
+        req_ctx = model.RequestContext(
+            repository,
+            context=dict(request.headers.items()),
+        )
+
         try:
-            resource = await repository.get_resource(project_name, resource_name)
+            resource = await repository.get_resource(
+                project_name,
+                resource_name,
+                request_context=req_ctx,
+            )
         except errors.ResourceUnavailable as e:
             raise HTTPException(status_code=404, detail=str(e)) from e
         except errors.InvalidPackageError as e:
