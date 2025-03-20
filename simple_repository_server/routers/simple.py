@@ -115,15 +115,13 @@ def build_router(
     ) -> Response:
         normed_prj_name = packaging.utils.canonicalize_name(project_name)
         if normed_prj_name != project_name:
-            new_path_params = request.path_params.copy()
-            new_path_params["project_name"] = normed_prj_name
+            # Update the original path params with the normed name.
+            path_params = request.path_params | {'project_name': normed_prj_name}
             correct_url = utils.relative_url_for(
                 request=request,
                 name="simple_project_page",
-                **new_path_params,
+                **path_params,
             )
-            if request.url.query:
-                correct_url = correct_url + "?" + request.url.query
             return RedirectResponse(
                 url=correct_url,
                 status_code=301,
