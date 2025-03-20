@@ -122,6 +122,8 @@ def build_router(
                 name="simple_project_page",
                 **path_params,
             )
+            if request.url.query:
+                correct_url = correct_url + "?" + request.url.query
             return RedirectResponse(
                 url=correct_url,
                 status_code=301,
