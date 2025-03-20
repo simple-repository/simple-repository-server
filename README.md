@@ -27,7 +27,13 @@ options:
   --port PORT
 ```
 
-If multiple repositories are provided, the ``PrioritySelectedProjectsRepository`` component will be used to
+The simplest example of this is to simply mirror the Python Package Index:
+
+```bash
+python -m simple_repository_server https://pypi.org/simple/
+```
+
+However, if multiple repositories are provided, the ``PrioritySelectedProjectsRepository`` component will be used to
 combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610).
 
 The server handles PEP-691 content negotiation to serve either HTML or JSON formats.
@@ -55,7 +61,7 @@ For cases when control of the repository configuration is required, and where de
 ASGI environment need more precise control, it is expected that ``simple-repository-server`` is used
 as a library instead of a CLI.
 
-Currently the API for this functionality is under development, and will certainly change in the
+Currently, the API for this functionality is under development, and will certainly change in the
 future.
 
 ## License and Support

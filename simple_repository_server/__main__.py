@@ -67,7 +67,7 @@ def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
         async with httpx.AsyncClient() as http_client:
             repo = create_repository(repository_urls, http_client)
-            app.include_router(simple.build_router(repo, http_client), prefix="")
+            app.include_router(simple.build_router(repo, http_client=http_client))
             yield
 
     app = FastAPI(

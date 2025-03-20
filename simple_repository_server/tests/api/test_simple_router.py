@@ -30,7 +30,7 @@ def mock_repo() -> mock.AsyncMock:
 def client(tmp_path: pathlib.PosixPath, mock_repo: mock.AsyncMock) -> typing.Generator[TestClient, None, None]:
     app = FastAPI()
     http_client = httpx.AsyncClient()
-    app.include_router(simple_router.build_router(mock_repo, http_client))
+    app.include_router(simple_router.build_router(mock_repo, http_client=http_client))
 
     with TestClient(app) as test_client:
         yield test_client
@@ -132,7 +132,7 @@ def test_get_resource__remote(mock_repo: mock.AsyncMock, httpx_mock: HTTPXMock) 
     )
     http_client = httpx.AsyncClient()
     app = FastAPI()
-    app.include_router(simple_router.build_router(mock_repo, http_client))
+    app.include_router(simple_router.build_router(mock_repo, http_client=http_client))
     client = TestClient(app)
 
     response = client.get("/resources/numpy/numpy-1.0-ciao.whl", follow_redirects=False)

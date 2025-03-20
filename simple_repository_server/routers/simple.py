@@ -59,9 +59,29 @@ def get_response_format(
 
 
 def build_router(
-    repository: SimpleRepository,
+    resource_repository: SimpleRepository,
+    *,
     http_client: httpx.AsyncClient,
+    prefix: str = "/simple/",
+    repo_factory: typing.Optional[typing.Callable[..., SimpleRepository]] = None,
 ) -> APIRouter:
+    """
+    Build a FastAPI router for the given repository and http_client.
+
+    Note that for the simple end-points, the repository is an injected
+    dependency, meaning that you can add your own dependencies into the repository
+    (see the test_repo_dependency_injection for an example of this).
+
+    """
+    if not prefix.endswith("/"):
+        raise ValueError("Prefix must end in '/'")
+
+    if repo_factory is None:
+        # If no repo factory is provided, use the same repository that we want to
+        # use for resource handling.
+        def repo_factory() -> SimpleRepository:
+            return resource_repository
+
     simple_router = APIRouter(
         tags=["simple"],
         default_response_class=HTMLResponse,
@@ -69,9 +89,10 @@ def build_router(
     #: To be fixed by https://github.com/tiangolo/fastapi/pull/2763
     get = functools.partial(simple_router.api_route, methods=["HEAD", "GET"])
 
-    @get("/simple/")
+    @get(prefix)
     async def project_list(
         response_format: typing.Annotated[content_negotiation.Format, Depends(get_response_format)],
+        repository: typing.Annotated[SimpleRepository, Depends(repo_factory)],
     ) -> Response:
         project_list = await repository.get_project_list()
 
@@ -85,20 +106,24 @@ def build_router(
             media_type=response_format.value,
         )
 
-    @get("/simple/{project_name}/")
+    @get(prefix + "{project_name}/")
     async def simple_project_page(
-        project_name: str,
         request: fastapi.Request,
+        project_name: str,
+        repository: typing.Annotated[SimpleRepository, Depends(repo_factory)],
         response_format: typing.Annotated[content_negotiation.Format, Depends(get_response_format)],
     ) -> Response:
         normed_prj_name = packaging.utils.canonicalize_name(project_name)
         if normed_prj_name != project_name:
+            # Update the original path params with the normed name.
+            path_params = request.path_params | {'project_name': normed_prj_name}
+            correct_url = utils.relative_url_for(
+                request=request,
+                name="simple_project_page",
+                **path_params,
+            )
             return RedirectResponse(
-                url=utils.relative_url_for(
-                    request=request,
-                    name="simple_project_page",
-                    project_name=normed_prj_name,
-                ),
+                url=correct_url,
                 status_code=301,
             )
 
@@ -107,6 +132,11 @@ def build_router(
         except errors.PackageNotFoundError as e:
             raise HTTPException(404, str(e))
 
+        # Point all resource URLs to this router. The router may choose to redirect these
+        # back to the original source, but this means that all resource requests go through
+        # this server (it may be desirable to be able to disable this behaviour in the
+        # future, though it would mean that there is the potential for a SimpleRepository
+        # to have implemented a resource handler, yet it never sees the request).
         project_releases = utils.replace_urls(package_releases, project_name, request)
 
         serialized_project_page = serializer.serialize(
@@ -126,12 +156,12 @@ def build_router(
     ) -> fastapi.Response:
 
         req_ctx = model.RequestContext(
-            repository,
+            resource_repository,
             context=dict(request.headers.items()),
         )
 
         try:
-            resource = await repository.get_resource(
+            resource = await resource_repository.get_resource(
                 project_name,
                 resource_name,
                 request_context=req_ctx,
