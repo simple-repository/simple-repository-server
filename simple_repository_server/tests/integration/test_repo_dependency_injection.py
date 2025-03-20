@@ -131,3 +131,23 @@ async def test_repo_with_dependency_injection__project_page(
         "3.0",
       ],
     }
+
+
+@pytest.mark.asyncio
+async def test_repo_with_dependency_injection__project_page__redirect(
+        empty_repo: SimpleRepository,
+        repo_factory: SimpleFactoryWithParams,
+):
+    app = create_app(empty_repo, repo_factory=repo_factory)
+    client = TestClient(app)
+    response = client.get(
+        "/snapshot/2020-10-12/foo_Bar/?format=application/vnd.pypi.simple.v1+json",
+        follow_redirects=False,
+    )
+
+    # Check that the factory was called with the expected args.
+    assert repo_factory.cutoff_date == "2020-10-12"
+
+    assert response.status_code == 301
+    # Ensure that we maintain the querystring.
+    assert response.headers['location'] == '../foo-bar/?format=application/vnd.pypi.simple.v1+json'
