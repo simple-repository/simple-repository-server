@@ -152,9 +152,9 @@ def build_router(
 
     @get("/resources/{project_name}/{resource_name}")
     async def resources(
+        request: fastapi.Request,
         resource_name: str,
         project_name: str,
-        request: fastapi.Request,
     ) -> fastapi.Response:
 
         req_ctx = model.RequestContext(
@@ -192,6 +192,7 @@ def build_router(
             response_iterator = await HttpResponseIterator.create_iterator(
                 http_client=http_client,
                 url=resource.url,
+                request_headers=request.headers,
             )
             return StreamingResponse(
                 content=response_iterator,

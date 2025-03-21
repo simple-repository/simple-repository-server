@@ -65,7 +65,6 @@ class HttpResponseIterator:
             http_client=http_client,
             url=url,
         )
-
         request_headers = request_headers or {}
         headers = {
             header_name: header_value for header_name, header_value in request_headers.items()
@@ -78,20 +77,13 @@ class HttpResponseIterator:
                     url=iterator.url,
                     headers=headers,
             ) as resp:
-                # httpx doesn't allow us to get access to the raw value, yet it
-                # may be compressed (e.g. gzip), and the content-length
-                # represents the compressed size. It is imperative therefore
-                # that we stream the original bytes, and not the uncompressed
-                # ones.
-                _disable_decoding_of_response(resp)
-
                 # Expose the response status and headers.
                 iterator.status_code, iterator.headers = resp.status_code, resp.headers
 
                 # The first time that anext is called, set status_code and
                 # headers, without yielding the first byte of the stream.
                 yield b""
-                async for chunk in resp.aiter_bytes(1024 * 1024):
+                async for chunk in resp.aiter_raw(1024 * 1024):
                     yield chunk
 
         iterator._agen = agenerator()
@@ -99,18 +91,3 @@ class HttpResponseIterator:
         await iterator.__anext__()
 
         return iterator
-
-
-def _disable_decoding_of_response(response: httpx.Response) -> None:
-    # Use a private interface to disable the decoding. There is currently no
-    # public way to influence this with httpx.
-    try:
-        from httpx._decoders import IdentityDecoder  # noqa
-        response._decoder = IdentityDecoder()  # noqa
-    except Exception as err:
-        raise RuntimeError(
-            "The ability to patch the httpx.Response class is unavailable. "
-            "The result may be an invalid response stream, therefore refusing "
-            "to proceed. Please report the issue along with the version of "
-            "httpx being used.",
-        ) from err
