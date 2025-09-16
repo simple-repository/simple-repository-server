@@ -158,7 +158,6 @@ def build_router(
     ) -> fastapi.Response:
 
         req_ctx = model.RequestContext(
-            resource_repository,
             context=dict(request.headers.items()),
         )
 
