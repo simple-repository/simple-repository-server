@@ -56,8 +56,9 @@ mechanism to disable those features. For more control, please see the "Non CLI u
 
 ## Authentication
 
-The server automatically supports netrc-based authentication for private repositories. If a `.netrc` file exists in your home directory or is specified via the `NETRC` environment variable, the server will use those credentials when accessing HTTP repositories.
-
+The server automatically supports netrc-based authentication for private http repositories.
+If a `.netrc` file exists in your home directory or is specified via the `NETRC` environment
+variable, the server will use those credentials when accessing HTTP repositories.
 
 ## Non CLI usage
 

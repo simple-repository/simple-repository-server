@@ -46,10 +46,24 @@ def test_get_netrc__path_in_home(tmp_home: Path, netrc_file: Path):
 
 
 def test_get_netrc__netrc_env_var(netrc_file: Path, monkeypatch: pytest.MonkeyPatch):
-    """Test get_netrc_path returns None when no netrc file exists."""
+    """Test get_netrc_path uses NETRC environment variable when file exists."""
     monkeypatch.setenv('NETRC', str(netrc_file))
     result = get_netrc_path()
     assert result == netrc_file
+
+
+def test_get_netrc__netrc_env_var_nonexistent(tmp_home: Path, netrc_file: Path, monkeypatch: pytest.MonkeyPatch):
+    """Test get_netrc_path returns None when NETRC points to non-existent file (no fallback)."""
+    # Create ~/.netrc in home directory
+    home_netrc = tmp_home / '.netrc'
+    netrc_file.rename(home_netrc)
+
+    # Set NETRC to non-existent file
+    monkeypatch.setenv('NETRC', str(tmp_home / 'doesnt_exist'))
+    result = get_netrc_path()
+
+    # Should return None, NOT fall back to ~/.netrc
+    assert result is None
 
 
 def test_create_app__with_netrc(netrc_file: Path, monkeypatch: pytest.MonkeyPatch):

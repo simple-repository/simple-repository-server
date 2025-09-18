@@ -32,20 +32,23 @@ def is_url(url: str) -> bool:
 
 def get_netrc_path() -> typing.Optional[Path]:
     """
-    Get the netrc file path if it exists.
+    Get the netrc file path if it exists and is a regular file.
     Checks NETRC environment variable first, then ~/.netrc.
-    Returns None if no netrc file is found.
+    Returns None if no valid netrc file is found.
+
+    If NETRC is explicitly set but points to a non-existent or invalid file,
+    returns None.
     """
-    # Check if NETRC environment variable is set
     netrc_env = os.environ.get('NETRC')
     if netrc_env:
         netrc_path = Path(netrc_env)
-        if netrc_path.exists():
+        if netrc_path.exists() and netrc_path.is_file():
             return netrc_path
+        # If NETRC is explicitly set but invalid, don't fall back to ~/.netrc
+        return None
 
-    # Check for default ~/.netrc file
     default_netrc = Path.home() / '.netrc'
-    if default_netrc.exists():
+    if default_netrc.exists() and default_netrc.is_file():
         return default_netrc
 
     return None
