@@ -8,6 +8,7 @@
 import argparse
 from contextlib import asynccontextmanager
 import logging
+import os
 from pathlib import Path
 import typing
 from urllib.parse import urlparse
@@ -29,6 +30,30 @@ def is_url(url: str) -> bool:
     return urlparse(url).scheme in ("http", "https")
 
 
+def get_netrc_path() -> typing.Optional[Path]:
+    """
+    Get the netrc file path if it exists and is a regular file.
+    Checks NETRC environment variable first, then ~/.netrc.
+    Returns None if no valid netrc file is found.
+
+    If NETRC is explicitly set but points to a non-existent or invalid file,
+    returns None.
+    """
+    netrc_env = os.environ.get('NETRC')
+    if netrc_env:
+        netrc_path = Path(netrc_env)
+        if netrc_path.exists() and netrc_path.is_file():
+            return netrc_path
+        # If NETRC is explicitly set but invalid, don't fall back to ~/.netrc
+        return None
+
+    default_netrc = Path.home() / '.netrc'
+    if default_netrc.exists() and default_netrc.is_file():
+        return default_netrc
+
+    return None
+
+
 def configure_parser(parser: argparse.ArgumentParser) -> None:
     parser.description = "Run a Python Package Index"
 
@@ -39,6 +64,7 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
 
 def create_repository(
     repository_urls: list[str],
+    *,
     http_client: httpx.AsyncClient,
 ) -> SimpleRepository:
     base_repos: list[SimpleRepository] = []
@@ -65,8 +91,15 @@ def create_repository(
 def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
-        async with httpx.AsyncClient() as http_client:
-            repo = create_repository(repository_urls, http_client)
+        # Configure httpx client with netrc support if netrc file exists
+        netrc_path = get_netrc_path()
+        auth: typing.Optional[httpx.Auth] = None
+        if netrc_path:
+            logging.info(f"Using netrc authentication from: {netrc_path}")
+            auth = httpx.NetRCAuth(file=str(netrc_path))
+
+        async with httpx.AsyncClient(auth=auth) as http_client:
+            repo = create_repository(repository_urls, http_client=http_client)
             app.include_router(simple.build_router(repo, http_client=http_client))
             yield
 
