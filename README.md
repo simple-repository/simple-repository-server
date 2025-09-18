@@ -54,6 +54,11 @@ It is expected that as new features appear in the underlying ``simple-repository
 which make general sense to enable by default will be introduced into the CLI without providing a
 mechanism to disable those features. For more control, please see the "Non CLI usage" section.
 
+## Authentication
+
+The server automatically supports netrc-based authentication for private repositories. If a `.netrc` file exists in your home directory or is specified via the `NETRC` environment variable, the server will use those credentials when accessing HTTP repositories.
+
+
 ## Non CLI usage
 
 This project provides a number of tools in order to build a repository service using FastAPI.
