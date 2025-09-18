@@ -92,13 +92,13 @@ def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
         # Configure httpx client with netrc support if netrc file exists
-        client_kwargs = {}
         netrc_path = get_netrc_path()
+        auth: typing.Optional[httpx.Auth] = None
         if netrc_path:
             logging.info(f"Using netrc authentication from: {netrc_path}")
-            client_kwargs["auth"] = httpx.NetRCAuth(file=str(netrc_path))
+            auth = httpx.NetRCAuth(file=str(netrc_path))
 
-        async with httpx.AsyncClient(**client_kwargs) as http_client:
+        async with httpx.AsyncClient(auth=auth) as http_client:
             repo = create_repository(repository_urls, http_client=http_client)
             app.include_router(simple.build_router(repo, http_client=http_client))
             yield
