@@ -98,7 +98,7 @@ def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
             logging.info(f"Using netrc authentication from: {netrc_path}")
             auth = httpx.NetRCAuth(file=str(netrc_path))
 
-        async with httpx.AsyncClient(auth=auth) as http_client:
+        async with httpx.AsyncClient(auth=auth, follow_redirects=True) as http_client:
             repo = create_repository(repository_urls, http_client=http_client)
             app.include_router(simple.build_router(repo, http_client=http_client))
             yield
