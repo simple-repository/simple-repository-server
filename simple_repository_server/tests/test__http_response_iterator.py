@@ -99,3 +99,33 @@ async def test_http_response_iterator__response_remains_gzipped(
     content = b''.join([chunk async for chunk in response_it])
     assert len(content) == len(compressed)
     assert decoder(content) == input_content
+
+
+@pytest.mark.asyncio
+async def test_http_response_iterator__follows_redirects(
+        httpserver: HTTPServer,
+) -> None:
+    # Test that the HttpResponseIterator follows redirects properly
+    final_content = b"This is the final content after redirect"
+
+    # Set up redirect chain: /redirect -> /final
+    httpserver.expect_request('/final').respond_with_data(
+        final_content,
+        headers={'content-type': 'application/octet-stream'},
+    )
+    httpserver.expect_request('/redirect').respond_with_data(
+        b"",
+        status=302,
+        headers={'location': httpserver.url_for('/final')},
+    )
+
+    http_client = httpx.AsyncClient(follow_redirects=True)
+    response_it = await HttpResponseIterator.create_iterator(
+        http_client,
+        httpserver.url_for('/redirect'),
+    )
+
+    # Should get the final content, not the redirect response
+    assert response_it.status_code == 200
+    content = b''.join([chunk async for chunk in response_it])
+    assert content == final_content
