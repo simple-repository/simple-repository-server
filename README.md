@@ -53,7 +53,7 @@ uv pip install some-package-to-install
 ## Server capabilities
 
 If multiple repositories are provided to the CLI, the ``PrioritySelectedProjectsRepository`` component will be used to
-combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610).
+combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610), with the first declared repository having the highest priority.
 
 The server handles PEP-691 content negotiation to serve either HTML or JSON formats.
 Per PEP-691, the default (fallback) content type is HTML, but a JSON response can
@@ -84,7 +84,7 @@ python -m simple_repository_server https://pypi.org/simple/
 # Local directory
 python -m simple_repository_server /path/to/local/packages/
 
-# Multiple sources (priority order)
+# Multiple sources (priority order, local having precedence)
 python -m simple_repository_server /path/to/local/packages/ https://pypi.org/simple/
 ```
 
