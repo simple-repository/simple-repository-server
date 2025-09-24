@@ -120,7 +120,22 @@ async def test_simple_package_releases__package_not_found(client: TestClient, mo
     }
 
 
-def test_get_resource__remote(mock_repo: mock.AsyncMock, httpx_mock: HTTPXMock) -> None:
+def test_get_resource__http_redirect(mock_repo: mock.AsyncMock) -> None:
+    mock_repo.get_resource.return_value = model.HttpResource(
+        url="http://my_url",
+    )
+
+    http_client = httpx.AsyncClient()
+    app = FastAPI()
+    app.include_router(simple_router.build_router(mock_repo, http_client=http_client))
+    client = TestClient(app)
+
+    response = client.get("/resources/numpy/numpy-1.0-ciao.whl", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "http://my_url"
+
+
+def test_get_resource__http_streaming(mock_repo: mock.AsyncMock, httpx_mock: HTTPXMock) -> None:
     mock_repo.get_resource.return_value = model.HttpResource(
         url="http://my_url",
     )
@@ -132,7 +147,7 @@ def test_get_resource__remote(mock_repo: mock.AsyncMock, httpx_mock: HTTPXMock) 
     )
     http_client = httpx.AsyncClient()
     app = FastAPI()
-    app.include_router(simple_router.build_router(mock_repo, http_client=http_client))
+    app.include_router(simple_router.build_router(mock_repo, http_client=http_client, stream_http_resources=True))
     client = TestClient(app)
 
     response = client.get("/resources/numpy/numpy-1.0-ciao.whl", follow_redirects=False)
