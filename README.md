@@ -20,11 +20,13 @@ usage: simple-repository-server [-h] [--port PORT] repository-url [repository-ur
 Run a Simple Repository Server
 
 positional arguments:
-  repository-url
+  repository-url  Repository URL (http/https) or local directory path
 
 options:
   -h, --help      show this help message and exit
   --port PORT
+  --stream-http-resources
+                  Stream HTTP resources through this server instead of redirecting (default: redirect)
 ```
 
 The simplest example of this is to simply mirror the Python Package Index:
@@ -33,8 +35,25 @@ The simplest example of this is to simply mirror the Python Package Index:
 python -m simple_repository_server https://pypi.org/simple/
 ```
 
-However, if multiple repositories are provided, the ``PrioritySelectedProjectsRepository`` component will be used to
-combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610).
+This will run a server (on port 8000 by default), you can then use it with `pip` or `uv` with the
+appropriate configuration, for example:
+
+```bash
+export PIP_INDEX_URL=http://localhost:8000/simple/
+pip install some-package-to-install
+```
+
+Or with `uv`:
+
+```bash
+export UV_INDEX_URL=http://localhost:8000/simple/
+uv pip install some-package-to-install
+```
+
+## Server capabilities
+
+If multiple repositories are provided to the CLI, the ``PrioritySelectedProjectsRepository`` component will be used to
+combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610), with the first declared repository having the highest priority.
 
 The server handles PEP-691 content negotiation to serve either HTML or JSON formats.
 Per PEP-691, the default (fallback) content type is HTML, but a JSON response can
@@ -43,7 +62,7 @@ querystring to any of the repository URLs.
 
 The server has been configured to include PEP-658 metadata, even if the upstream repository does
 not include such metadata. This is done on the fly, and as a result the distribution will be
-temporarily downloaded to the server in order to extract and serve the metadata.
+temporarily downloaded (in the case of http) to the server in order to extract and serve the metadata.
 
 It is possible to use the resulting repository as input for the
 [``simple-repository-browser``](https://github.com/simple-repository/simple-repository-browser), which
@@ -54,11 +73,55 @@ It is expected that as new features appear in the underlying ``simple-repository
 which make general sense to enable by default will be introduced into the CLI without providing a
 mechanism to disable those features. For more control, please see the "Non CLI usage" section.
 
+## Repository sources
+
+The server can work with both remote repositories and local directories:
+
+```bash
+# Remote repository
+python -m simple_repository_server https://pypi.org/simple/
+
+# Local directory
+python -m simple_repository_server /path/to/local/packages/
+
+# Multiple sources (priority order, local having precedence)
+python -m simple_repository_server /path/to/local/packages/ https://pypi.org/simple/
+```
+
+Local directories should be organised with each project in its own subdirectory using the
+canonical package name (lowercase, with hyphens instead of underscores):
+
+```
+/path/to/local/packages/
+├── my-package/
+│   ├── my_package-1.0.0-py3-none-any.whl
+│   └── my-package-1.0.0.tar.gz
+└── another-package/
+    └── another_package-2.1.0-py3-none-any.whl
+```
+
+If metadata files are in the local repository they will be served directly, otherwise they
+will be extracted on-the-fly and served.
+
 ## Authentication
 
 The server automatically supports netrc-based authentication for private http repositories.
 If a `.netrc` file exists in your home directory or is specified via the `NETRC` environment
 variable, the server will use those credentials when accessing HTTP repositories.
+
+## Resource handling
+
+By default, HTTP resource requests (e.g. wheel downloads) are redirected to their original URLs
+(302 redirect).
+To stream resources through the server instead, use the `--stream-http-resources` CLI flag.
+
+**Redirecting (default) is suitable for:**
+- Most public repository scenarios
+- When bandwidth and server processing overhead are considerations
+
+**Streaming is useful for:**
+- Air-gapped environments where clients cannot access upstream URLs directly
+- When the server has authentication credentials that clients lack
 
 ## Non CLI usage
 
