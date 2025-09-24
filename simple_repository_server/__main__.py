@@ -64,7 +64,10 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Stream HTTP resources through this server instead of redirecting (default: redirect)",
     )
-    parser.add_argument("repository_url", metavar="repository-url", type=str, nargs="+")
+    parser.add_argument(
+        "repository_url", metavar="repository-url", type=str, nargs="+",
+        help="Repository URL (http/https) or local directory path",
+    )
 
 
 def create_repository(

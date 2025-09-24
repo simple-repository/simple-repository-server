@@ -20,7 +20,7 @@ usage: simple-repository-server [-h] [--port PORT] repository-url [repository-ur
 Run a Simple Repository Server
 
 positional arguments:
-  repository-url
+  repository-url  Repository URL (http/https) or local directory path
 
 options:
   -h, --help      show this help message and exit
@@ -62,7 +62,7 @@ querystring to any of the repository URLs.
 
 The server has been configured to include PEP-658 metadata, even if the upstream repository does
 not include such metadata. This is done on the fly, and as a result the distribution will be
-temporarily downloaded to the server in order to extract and serve the metadata.
+temporarily downloaded (in the case of http) to the server in order to extract and serve the metadata.
 
 It is possible to use the resulting repository as input for the
 [``simple-repository-browser``](https://github.com/simple-repository/simple-repository-browser), which
@@ -72,6 +72,36 @@ inspired by PyPI / warehouse.
 It is expected that as new features appear in the underlying ``simple-repository`` library, those
 which make general sense to enable by default will be introduced into the CLI without providing a
 mechanism to disable those features. For more control, please see the "Non CLI usage" section.
+
+## Repository sources
+
+The server can work with both remote repositories and local directories:
+
+```bash
+# Remote repository
+python -m simple_repository_server https://pypi.org/simple/
+
+# Local directory
+python -m simple_repository_server /path/to/local/packages/
+
+# Multiple sources (priority order)
+python -m simple_repository_server /path/to/local/packages/ https://pypi.org/simple/
+```
+
+Local directories should be organised with each project in its own subdirectory using the
+canonical package name (lowercase, with hyphens instead of underscores):
+
+```
+/path/to/local/packages/
+├── my-package/
+│   ├── my_package-1.0.0-py3-none-any.whl
+│   └── my-package-1.0.0.tar.gz
+└── another-package/
+    └── another_package-2.1.0-py3-none-any.whl
+```
+
+If metadata files are in the local repository they will be served directly, otherwise they
+will be extracted on-the-fly and served.
 
 ## Authentication
 
