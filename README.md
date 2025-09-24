@@ -32,20 +32,21 @@ options:
 The simplest example of this is to simply mirror the Python Package Index:
 
 ```bash
-python -m simple_repository_server --port 8080 https://pypi.org/simple/
+python -m simple_repository_server https://pypi.org/simple/
 ```
 
-Once running, you can configure `pip` or `uv` to use your repository, for example:
+This will run a server (on port 8000 by default), you can then use it with `pip` or `uv` with the
+appropriate configuration, for example:
 
 ```bash
-export PIP_INDEX_URL=http://localhost:8080/simple/
+export PIP_INDEX_URL=http://localhost:8000/simple/
 pip install some-package-to-install
 ```
 
 Or with `uv`:
 
 ```bash
-export UV_INDEX_URL=http://localhost:8080/simple/
+export UV_INDEX_URL=http://localhost:8000/simple/
 uv pip install some-package-to-install
 ```
 
@@ -77,6 +78,20 @@ mechanism to disable those features. For more control, please see the "Non CLI u
 The server automatically supports netrc-based authentication for private http repositories.
 If a `.netrc` file exists in your home directory or is specified via the `NETRC` environment
 variable, the server will use those credentials when accessing HTTP repositories.
+
+## Resource handling
+
+By default, HTTP resource requests (e.g. wheel downloads) are redirected to their original URLs
+(302 redirect).
+To stream resources through the server instead, use the `--stream-http-resources` CLI flag.
+
+**Redirecting (default) is suitable for:**
+- Most public repository scenarios
+- When bandwidth and server processing overhead are considerations
+
+**Streaming is useful for:**
+- Air-gapped environments where clients cannot access upstream URLs directly
+- When the server has authentication credentials that clients lack
 
 ## Non CLI usage
 
