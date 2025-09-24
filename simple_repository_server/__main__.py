@@ -59,6 +59,11 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
 
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--stream-http-resources",
+        action="store_true",
+        help="Stream HTTP resources through this server instead of redirecting (default: redirect)",
+    )
     parser.add_argument("repository_url", metavar="repository-url", type=str, nargs="+")
 
 
@@ -88,7 +93,7 @@ def create_repository(
     return MetadataInjectorRepository(repo, http_client)
 
 
-def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
+def create_app(repository_urls: list[str], *, stream_http_resources: bool = False) -> fastapi.FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> typing.AsyncIterator[None]:
         # Configure httpx client with netrc support if netrc file exists
@@ -100,7 +105,13 @@ def create_app(repository_urls: list[str]) -> fastapi.FastAPI:
 
         async with httpx.AsyncClient(auth=auth, follow_redirects=True) as http_client:
             repo = create_repository(repository_urls, http_client=http_client)
-            app.include_router(simple.build_router(repo, http_client=http_client))
+            app.include_router(
+                simple.build_router(
+                    repo,
+                    http_client=http_client,
+                    stream_http_resources=stream_http_resources,
+                ),
+            )
             yield
 
     app = FastAPI(
@@ -114,8 +125,9 @@ def handler(args: typing.Any) -> None:
     host: str = args.host
     port: int = args.port
     repository_urls: list[str] = args.repository_url
+    stream_http_resources: bool = args.stream_http_resources
     uvicorn.run(
-        app=create_app(repository_urls),
+        app=create_app(repository_urls, stream_http_resources=stream_http_resources),
         host=host,
         port=port,
     )

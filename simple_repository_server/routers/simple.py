@@ -64,6 +64,7 @@ def build_router(
     http_client: httpx.AsyncClient,
     prefix: str = "/simple/",
     repo_factory: typing.Optional[typing.Callable[..., SimpleRepository]] = None,
+    stream_http_resources: bool = False,
 ) -> APIRouter:
     """
     Build a FastAPI router for the given repository and http_client.
@@ -188,16 +189,19 @@ def build_router(
             )
 
         if isinstance(resource, model.HttpResource):
-            response_iterator = await HttpResponseIterator.create_iterator(
-                http_client=http_client,
-                url=resource.url,
-                request_headers=request.headers,
-            )
-            return StreamingResponse(
-                content=response_iterator,
-                status_code=response_iterator.status_code,
-                headers=response_iterator.headers,
-            )
+            if stream_http_resources:
+                response_iterator = await HttpResponseIterator.create_iterator(
+                    http_client=http_client,
+                    url=resource.url,
+                    request_headers=request.headers,
+                )
+                return StreamingResponse(
+                    content=response_iterator,
+                    status_code=response_iterator.status_code,
+                    headers=response_iterator.headers,
+                )
+            else:
+                return RedirectResponse(url=resource.url, status_code=302)
 
         if isinstance(resource, model.LocalResource):
             ctx_etag = resource.context.get("etag")
