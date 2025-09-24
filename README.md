@@ -25,15 +25,33 @@ positional arguments:
 options:
   -h, --help      show this help message and exit
   --port PORT
+  --stream-http-resources
+                  Stream HTTP resources through this server instead of redirecting (default: redirect)
 ```
 
 The simplest example of this is to simply mirror the Python Package Index:
 
 ```bash
-python -m simple_repository_server https://pypi.org/simple/
+python -m simple_repository_server --port 8080 https://pypi.org/simple/
 ```
 
-However, if multiple repositories are provided, the ``PrioritySelectedProjectsRepository`` component will be used to
+Once running, you can configure `pip` or `uv` to use your repository, for example:
+
+```bash
+export PIP_INDEX_URL=http://localhost:8080/simple/
+pip install some-package-to-install
+```
+
+Or with `uv`:
+
+```bash
+export UV_INDEX_URL=http://localhost:8080/simple/
+uv pip install some-package-to-install
+```
+
+## Server capabilities
+
+If multiple repositories are provided to the CLI, the ``PrioritySelectedProjectsRepository`` component will be used to
 combine them together in a way that mitigates the [dependency confusion attack](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610).
 
 The server handles PEP-691 content negotiation to serve either HTML or JSON formats.
