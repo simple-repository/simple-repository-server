@@ -107,7 +107,9 @@ async def test_repo_with_dependency_injection__project_page(
 
     assert response.status_code == 200
     assert response.headers['content-type'] == 'application/vnd.pypi.simple.v1+json'
-    assert response.json() == {
+
+    response_data = response.json()
+    expected_data = {
       "meta": {
         "api-version": "1.1",
       },
@@ -131,6 +133,10 @@ async def test_repo_with_dependency_injection__project_page(
         "3.0",
       ],
     }
+
+    # The version sort order is not currently deterministic, so test that separately.
+    assert set(response_data.pop("versions")) == set(expected_data.pop("versions"))
+    assert response_data == expected_data
 
 
 @pytest.mark.asyncio
