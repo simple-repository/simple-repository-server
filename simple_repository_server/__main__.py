@@ -7,6 +7,7 @@
 
 import argparse
 from contextlib import asynccontextmanager
+import importlib
 import logging
 import os
 from pathlib import Path
@@ -54,6 +55,49 @@ def get_netrc_path() -> typing.Optional[Path]:
     return None
 
 
+def load_repository_from_spec(spec: str, *, http_client: httpx.AsyncClient) -> SimpleRepository:
+    """
+    Load a repository from a specification string.
+
+    The spec can be:
+    - An HTTP/HTTPS URL (e.g., "https://pypi.org/simple/")
+    - An existing filesystem directory (e.g., "/path/to/packages")
+    - A Python entrypoint specification (e.g., "mymodule:create_repo")
+
+    For entrypoint specifications:
+    - The format is "module.path:callable"
+    - The callable, invoked with no arguments, must return a SimpleRepository instance
+    """
+    # Check if it's an HTTP URL
+    if is_url(spec):
+        return HttpRepository(url=spec, http_client=http_client)
+
+    # Check if it's an existing filesystem path
+    path = Path(spec)
+    if path.exists() and path.is_dir():
+        return LocalRepository(path)
+
+    # Try to load as Python entrypoint
+    if ":" not in spec:
+        raise ValueError(
+            f"Invalid repository specification: '{spec}'. "
+            "Must be an HTTP URL, file path, or entrypoint (module:callable)",
+        )
+
+    module_path, attr_name = spec.rsplit(":", 1)
+    module = importlib.import_module(module_path)
+    obj = getattr(module, attr_name)
+    # Call it and verify the result
+    result = obj()
+    if not isinstance(result, SimpleRepository):
+        raise TypeError(
+            f"Entrypoint '{spec}' must return a SimpleRepository instance, "
+            f"got {type(result).__name__}",
+        )
+
+    return result
+
+
 def configure_parser(parser: argparse.ArgumentParser) -> None:
     parser.description = "Run a Python Package Index"
 
@@ -66,7 +110,7 @@ def configure_parser(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "repository_url", metavar="repository-url", type=str, nargs="+",
-        help="Repository URL (http/https) or local directory path",
+        help="Repository URL (http/https), local directory path, or Python entrypoint (module:callable)",
     )
 
 
@@ -76,17 +120,8 @@ def create_repository(
     http_client: httpx.AsyncClient,
 ) -> SimpleRepository:
     base_repos: list[SimpleRepository] = []
-    repo: SimpleRepository
-    for repo_url in repository_urls:
-        if is_url(repo_url):
-            repo = HttpRepository(
-                url=repo_url,
-                http_client=http_client,
-            )
-        else:
-            repo = LocalRepository(
-                index_path=Path(repo_url),
-            )
+    for repo_spec in repository_urls:
+        repo = load_repository_from_spec(repo_spec, http_client=http_client)
         base_repos.append(repo)
 
     if len(base_repos) > 1:
