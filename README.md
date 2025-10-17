@@ -20,7 +20,7 @@ usage: simple-repository-server [-h] [--port PORT] repository-url [repository-ur
 Run a Simple Repository Server
 
 positional arguments:
-  repository-url  Repository URL (http/https) or local directory path
+  repository-url  Repository URL (http/https), local directory path, or Python entrypoint (module:callable)
 
 options:
   -h, --help      show this help message and exit
@@ -75,7 +75,7 @@ mechanism to disable those features. For more control, please see the "Non CLI u
 
 ## Repository sources
 
-The server can work with both remote repositories and local directories:
+The server can work with remote repositories, local directories, and user-defined `SimpleRepository` factories:
 
 ```bash
 # Remote repository
@@ -84,9 +84,14 @@ python -m simple_repository_server https://pypi.org/simple/
 # Local directory
 python -m simple_repository_server /path/to/local/packages/
 
-# Multiple sources (priority order, local having precedence)
+# Python entrypoint (callable with no args and returns a SimpleRepository instance)
+python -m simple_repository_server some_package.subpackage:create_repo
+
+# Multiple sources (priority order, local having precedence due to it being declared first)
 python -m simple_repository_server /path/to/local/packages/ https://pypi.org/simple/
 ```
+
+### Local directories
 
 Local directories should be organised with each project in its own subdirectory using the
 canonical package name (lowercase, with hyphens instead of underscores):
@@ -102,6 +107,40 @@ canonical package name (lowercase, with hyphens instead of underscores):
 
 If metadata files are in the local repository they will be served directly, otherwise they
 will be extracted on-the-fly and served.
+
+### User defined SimpleRepository factories
+
+For advanced use cases, you can provide a Python entrypoint specification that returns
+a `SimpleRepository` instance. This allows maximum configuration flexibility without
+having to set up a custom FastAPI application.
+
+The entrypoint format is `module.path:callable`, where:
+- The module path uses standard Python import syntax
+- The callable will be invoked with no arguments, and must return a `SimpleRepository` instance
+
+
+Example entrypoint in `mypackage/repos.py`:
+
+```python
+from simple_repository.components.core import SimpleRepository
+from simple_repository.components.http import HttpRepository
+from simple_repository.components.allow_listed import AllowListedRepository
+
+def create_repository() -> SimpleRepository:
+    """Factory function that creates a custom repository configuration"""
+    base = HttpRepository("https://pypi.org/simple/")
+    # Only allow specific packages
+    return AllowListedRepository(
+        source=base,
+        allowed_projects=["numpy", "pandas", "scipy"]
+    )
+```
+
+Then use it (assuming it is on the PYTHONPATH) with:
+
+```bash
+python -m simple_repository_server mypackage.repos:create_repository
+```
 
 ## Authentication
 
